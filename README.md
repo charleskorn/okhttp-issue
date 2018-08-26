@@ -13,6 +13,20 @@ See [https://github.com/square/okhttp/issues/4233](https://github.com/square/okh
 
 # Sample output
 
+The important information here is the cleanup time.
+
+On OS X, it looks like this:
+
+```
+2018-08-26T01:56:52.538+1000 INFO com.charleskorn.okhttpissue.ClientAndServer Done! Cleanup took 105 ms.
+```
+
+On Linux, it looks like this:
+
+```
+2018-08-26T01:57:14.626+1000 INFO com.charleskorn.okhttpissue.ClientAndServer Done! Cleanup took 3013 ms.
+```
+
 ## OS X
 
 ```
