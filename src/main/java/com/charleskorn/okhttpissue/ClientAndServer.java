@@ -26,13 +26,14 @@ import okio.Buffer;
 import java.io.File;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class ClientAndServer {
     private static final Logger logger = Logger.getLogger(ClientAndServer.class.getName());
 
-    public void run(boolean chunkedRequest) throws Exception {
-        logger.info("Running with chunkedRequest = " + chunkedRequest);
+    public void run(Scenario scenario) throws Exception {
+        logger.info("Running scenario " + scenario);
 
         File socketFile = new File("/tmp/ClientAndServer.sock");
         socketFile.delete();
@@ -40,23 +41,7 @@ public class ClientAndServer {
 
         try (MockWebServer server = new MockWebServer()) {
             server.setServerSocketFactory(new UnixDomainServerSocketFactory(socketFile));
-
-            String body = "hello";
-
-            if (chunkedRequest) {
-                Buffer bytes = new Buffer();
-                bytes.writeHexadecimalUnsignedLong(body.length());
-                bytes.writeUtf8("\r\n");
-                bytes.writeUtf8(body);
-                bytes.writeUtf8("\r\n");
-
-                // Normally, to end a chunked body, you would write '0\r\n\r\n' to signal the end of the body, but this won't come in the case of streaming events from a server
-                // (eg. the Docker events API)
-
-                server.enqueue(new MockResponse().setBody(bytes).removeHeader("Content-Length").addHeader("Transfer-encoding: chunked"));
-            } else {
-                server.enqueue(new MockResponse().setBody(body));
-            }
+            server.enqueue(createMockResponse(scenario));
 
             server.start();
 
@@ -81,6 +66,43 @@ public class ClientAndServer {
             Duration cleanupDuration = Duration.ofNanos(cleanupFinishTime - cleanupStartTime);
 
             logger.info("Done! Cleanup took " + cleanupDuration.toMillis() + " ms.");
+        } catch (Throwable t) {
+            logger.log(Level.SEVERE, "Exception thrown during test", t);
+        }
+    }
+
+    private MockResponse createMockResponse(Scenario scenario) {
+        String body = "hello";
+
+        switch (scenario) {
+            case Normal:
+                return new MockResponse().setBody(body);
+
+            case ChunkedWithEndMarker:
+                Buffer bytesWithEndMarker = new Buffer();
+                bytesWithEndMarker.writeHexadecimalUnsignedLong(body.length());
+                bytesWithEndMarker.writeUtf8("\r\n");
+                bytesWithEndMarker.writeUtf8(body);
+                bytesWithEndMarker.writeUtf8("\r\n");
+                bytesWithEndMarker.writeHexadecimalUnsignedLong(0);
+                bytesWithEndMarker.writeUtf8("\r\n\r\n");
+
+                return new MockResponse().setBody(bytesWithEndMarker).removeHeader("Content-Length").addHeader("Transfer-encoding: chunked");
+
+            case ChunkedWithoutEndMarker:
+                Buffer bytesWithoutEndMarker = new Buffer();
+                bytesWithoutEndMarker.writeHexadecimalUnsignedLong(body.length());
+                bytesWithoutEndMarker.writeUtf8("\r\n");
+                bytesWithoutEndMarker.writeUtf8(body);
+                bytesWithoutEndMarker.writeUtf8("\r\n");
+
+                // Normally, to end a chunked body, you would write '0\r\n\r\n' to signal the end of the body, but this won't come in the case of streaming events from a server
+                // (eg. the Docker events API)
+
+                return new MockResponse().setBody(bytesWithoutEndMarker).removeHeader("Content-Length").addHeader("Transfer-encoding: chunked");
+
+            default:
+                throw new RuntimeException("Unknown scenario: " + scenario);
         }
     }
 
@@ -94,4 +116,10 @@ public class ClientAndServer {
                 .readTimeout(3, TimeUnit.SECONDS)
                 .build();
     }
+}
+
+enum Scenario {
+    Normal,
+    ChunkedWithEndMarker,
+    ChunkedWithoutEndMarker
 }

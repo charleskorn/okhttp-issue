@@ -10,8 +10,9 @@ public class Application {
 
         ClientAndServer clientAndServer = new ClientAndServer();
 
-        clientAndServer.run(true);
-        clientAndServer.run(false);
+        clientAndServer.run(Scenario.ChunkedWithoutEndMarker);
+        clientAndServer.run(Scenario.ChunkedWithEndMarker);
+        clientAndServer.run(Scenario.Normal);
     }
 
     private static void configureLogging() throws IOException {
