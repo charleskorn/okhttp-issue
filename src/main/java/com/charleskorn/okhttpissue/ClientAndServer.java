@@ -15,44 +15,43 @@
  */
 package com.charleskorn.okhttpissue;
 
-import java.io.File;
+import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 
-/**
- * Create UNIX domain sockets for MockWebServer and OkHttp and connect 'em together. Note that we
- * cannot do TLS over domain sockets.
- */
+import java.io.File;
+import java.util.logging.Logger;
+
 public class ClientAndServer {
-  public void run() throws Exception {
-    File socketFile = new File("/tmp/ClientAndServer.sock");
-    socketFile.delete(); // Clean up from previous runs.
+    private static final Logger logger = Logger.getLogger(ClientAndServer.class.getName());
 
-    MockWebServer server = new MockWebServer();
-    server.setServerSocketFactory(new UnixDomainServerSocketFactory(socketFile));
-    server.enqueue(new MockResponse().setBody("hello"));
-    server.start();
+    public void run() throws Exception {
+        File socketFile = new File("/tmp/ClientAndServer.sock");
+        socketFile.delete();
 
-    OkHttpClient client = new OkHttpClient.Builder()
-        .socketFactory(new UnixDomainSocketFactory(socketFile))
-        .build();
+        try (MockWebServer server = new MockWebServer()) {
+            server.setServerSocketFactory(new UnixDomainServerSocketFactory(socketFile));
+            server.enqueue(new MockResponse().setBody("hello"));
+            server.start();
 
-    Request request = new Request.Builder()
-        .url("http://publicobject.com/helloworld.txt")
-        .build();
+            HttpUrl url = server.url("/helloworld.txt");
 
-    try (Response response = client.newCall(request).execute()) {
-      System.out.println(response.body().string());
+            OkHttpClient client = new OkHttpClient.Builder()
+                    .socketFactory(new UnixDomainSocketFactory(socketFile))
+                    .build();
+
+            Request request = new Request.Builder()
+                    .url(url)
+                    .build();
+
+            try (Response response = client.newCall(request).execute()) {
+                logger.info("Received response: " + response.body().string());
+            }
+        }
+
+        socketFile.delete();
     }
-
-    server.shutdown();
-    socketFile.delete();
-  }
-
-  public static void main(String... args) throws Exception {
-    new ClientAndServer().run();
-  }
 }

@@ -12,7 +12,7 @@ dependencies {
     compile 'com.github.jnr:jnr-unixsocket:0.19'
 }
 
-mainClassName = 'com.charleskorn.okhttpissue.ClientAndServer'
+mainClassName = 'com.charleskorn.okhttpissue.Application'
 
 wrapper {
     distributionType = Wrapper.DistributionType.ALL
