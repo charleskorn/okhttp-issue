@@ -1,0 +1,19 @@
+apply plugin: 'java'
+apply plugin: 'application'
+
+repositories {
+    jcenter()
+    mavenCentral()
+}
+
+dependencies {
+    compile 'com.squareup.okhttp3:okhttp:3.11.0'
+    compile 'com.squareup.okhttp3:mockwebserver:3.11.0'
+    compile 'com.github.jnr:jnr-unixsocket:0.19'
+}
+
+mainClassName = 'com.charleskorn.okhttpissue.ClientAndServer'
+
+wrapper {
+    distributionType = Wrapper.DistributionType.ALL
+}
