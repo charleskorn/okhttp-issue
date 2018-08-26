@@ -19,10 +19,13 @@ import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.logging.HttpLoggingInterceptor;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 
 import java.io.File;
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public class ClientAndServer {
@@ -31,27 +34,45 @@ public class ClientAndServer {
     public void run() throws Exception {
         File socketFile = new File("/tmp/ClientAndServer.sock");
         socketFile.delete();
+        socketFile.deleteOnExit();
 
         try (MockWebServer server = new MockWebServer()) {
             server.setServerSocketFactory(new UnixDomainServerSocketFactory(socketFile));
             server.enqueue(new MockResponse().setBody("hello"));
             server.start();
 
-            HttpUrl url = server.url("/helloworld.txt");
-
-            OkHttpClient client = new OkHttpClient.Builder()
-                    .socketFactory(new UnixDomainSocketFactory(socketFile))
-                    .build();
+            OkHttpClient client = makeClient(socketFile);
 
             Request request = new Request.Builder()
-                    .url(url)
+                    .url(server.url("/test"))
                     .build();
 
-            try (Response response = client.newCall(request).execute()) {
-                logger.info("Received response: " + response.body().string());
-            }
-        }
+            logger.info("Sending request...");
 
-        socketFile.delete();
+            Long cleanupStartTime;
+
+            try (Response response = client.newCall(request).execute()) {
+                logger.info("Received response.");
+
+                logger.info("Cleaning up...");
+                cleanupStartTime = System.nanoTime();
+            }
+
+            Long cleanupFinishTime = System.nanoTime();
+            Duration cleanupDuration = Duration.ofNanos(cleanupFinishTime - cleanupStartTime);
+
+            logger.info("Done! Cleanup took " + cleanupDuration.toMillis() + " ms.");
+        }
+    }
+
+    private OkHttpClient makeClient(File socketFile) {
+        HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
+        logging.setLevel(HttpLoggingInterceptor.Level.HEADERS);
+
+        return new OkHttpClient.Builder()
+                .socketFactory(new UnixDomainSocketFactory(socketFile))
+                .addInterceptor(logging)
+                .readTimeout(10, TimeUnit.SECONDS)
+                .build();
     }
 }
