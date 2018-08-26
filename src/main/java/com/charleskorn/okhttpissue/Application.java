@@ -8,7 +8,10 @@ public class Application {
     public static void main(String... args) throws Exception {
         configureLogging();
 
-        new ClientAndServer().run();
+        ClientAndServer clientAndServer = new ClientAndServer();
+
+        clientAndServer.run(true);
+        clientAndServer.run(false);
     }
 
     private static void configureLogging() throws IOException {
